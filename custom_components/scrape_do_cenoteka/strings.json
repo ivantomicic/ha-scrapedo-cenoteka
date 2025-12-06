@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Scrape.do - Cenoteka Setup",
+        "description": "Configure a Cenoteka product to monitor prices",
+        "data": {
+          "name": "Device Name",
+          "cenoteka_url": "Cenoteka Product URL",
+          "scrape_do_token": "Scrape.do API Token",
+          "price_threshold": "Price Threshold (RSD)",
+          "scan_interval": "Update Interval (seconds)"
+        },
+        "data_description": {
+          "name": "A friendly name for this device",
+          "cenoteka_url": "The full URL to the product page on Cenoteka (e.g., https://cenoteka.rs/p/...)",
+          "scrape_do_token": "Your Scrape.do API token",
+          "price_threshold": "Alert when price drops below this value",
+          "scan_interval": "How often to check prices (60-86400 seconds, default: 3600)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to Scrape.do. Please check your token and URL.",
+      "invalid_url": "Invalid Cenoteka URL. Must start with https://cenoteka.rs/",
+      "invalid_threshold": "Price threshold must be non-negative",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This device is already configured"
+    }
+  },
+  "services": {
+    "update_prices": {
+      "name": "Update Prices",
+      "description": "Manually trigger a price update for a Cenoteka product",
+      "fields": {
+        "entity_id": {
+          "name": "Entity ID",
+          "description": "Entity ID of the sensor to update (e.g., sensor.cenoteka_product_lowest_price)"
+        }
+      }
+    }
+  }
+}
+

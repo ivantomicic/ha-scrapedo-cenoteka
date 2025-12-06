@@ -1,0 +1,7 @@
+{
+	"name": "Scrape.do - Cenoteka",
+	"render_readme": true,
+	"country": ["RS"],
+	"domains": ["sensor"],
+	"homeassistant": "2023.1.0"
+}
