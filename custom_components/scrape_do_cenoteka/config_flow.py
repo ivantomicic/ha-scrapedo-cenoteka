@@ -6,7 +6,7 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -59,11 +59,17 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
 def _test_connection(url: str, token: str) -> None:
     """Test the connection to Scrape.do."""
-    import requests
+    try:
+        import requests
+    except ImportError:
+        raise CannotConnect("requests library not available")
 
     scrape_url = f"http://api.scrape.do/?url={url}&token={token}&output=raw"
-    resp = requests.get(scrape_url, timeout=10)
-    resp.raise_for_status()
+    try:
+        resp = requests.get(scrape_url, timeout=10)
+        resp.raise_for_status()
+    except requests.exceptions.RequestException as err:
+        raise CannotConnect(f"Connection failed: {err}") from err
 
 
 class CenotekaConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -94,51 +100,6 @@ class CenotekaConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
-        )
-
-    @staticmethod
-    async def async_get_options_flow(
-        config_entry: ConfigEntry,
-    ) -> OptionsFlow:
-        """Create the options flow."""
-        return CenotekaOptionsFlowHandler(config_entry)
-
-
-class CenotekaOptionsFlowHandler(OptionsFlow):
-    """Handle options flow for Scrape.do - Cenoteka."""
-
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Manage the options."""
-        if user_input is not None:
-            # Update options and reload entry
-            return self.async_create_entry(title="", data=user_input)
-
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_SCAN_INTERVAL,
-                        default=self.config_entry.options.get(
-                            CONF_SCAN_INTERVAL,
-                            self.config_entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-                        ),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=60, max=86400)),
-                    vol.Optional(
-                        CONF_PRICE_THRESHOLD,
-                        default=self.config_entry.options.get(
-                            CONF_PRICE_THRESHOLD,
-                            self.config_entry.data.get(CONF_PRICE_THRESHOLD, 0.0),
-                        ),
-                    ): vol.Coerce(float),
-                }
-            ),
         )
 
 
