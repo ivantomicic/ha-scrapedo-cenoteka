@@ -7,11 +7,6 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigFlow
-try:
-    from homeassistant.config_entries import ConfigFlowResult
-except ImportError:
-    # For older Home Assistant versions (< 2022.8)
-    ConfigFlowResult = dict[str, Any]
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -96,26 +91,38 @@ class CenotekaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    ):
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             try:
                 info = await validate_input(self.hass, user_input)
-            except CannotConnect:
+            except CannotConnect as err:
+                _LOGGER.error("Connection error: %s", err)
                 errors["base"] = "cannot_connect"
-            except InvalidUrl:
+            except InvalidUrl as err:
+                _LOGGER.error("Invalid URL: %s", err)
                 errors[CONF_CENOTEKA_URL] = "invalid_url"
-            except InvalidThreshold:
+            except InvalidThreshold as err:
+                _LOGGER.error("Invalid threshold: %s", err)
                 errors[CONF_PRICE_THRESHOLD] = "invalid_threshold"
-            except Exception:
-                _LOGGER.exception("Unexpected exception")
+            except Exception as err:
+                _LOGGER.exception("Unexpected exception in config flow: %s", err)
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(title=info["title"], data=user_input)
+                try:
+                    return self.async_create_entry(title=info["title"], data=user_input)
+                except Exception as err:
+                    _LOGGER.exception("Error creating config entry: %s", err)
+                    errors["base"] = "unknown"
 
-        return self.async_show_form(
-            step_id="user", data_schema=DATA_SCHEMA, errors=errors
-        )
+        try:
+            return self.async_show_form(
+                step_id="user", data_schema=DATA_SCHEMA, errors=errors
+            )
+        except Exception as err:
+            _LOGGER.exception("Error showing form: %s", err)
+            # Return a basic error
+            return self.async_abort(reason="config_flow_error")
 
