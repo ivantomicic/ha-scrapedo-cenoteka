@@ -6,7 +6,7 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow
+from homeassistant.config_entries import ConfigFlow
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -35,6 +35,7 @@ class InvalidUrl(HomeAssistantError):
 class InvalidThreshold(HomeAssistantError):
     """Error to indicate invalid threshold."""
 
+
 DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
@@ -49,11 +50,10 @@ DATA_SCHEMA = vol.Schema(
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
-    """Validate the user input allows us to connect."""
-    # Basic validation
+    """Validate the user input."""
     url = data.get(CONF_CENOTEKA_URL, "")
     if not url or not url.startswith("https://cenoteka.rs/"):
-        raise InvalidUrl("Invalid Cenoteka URL. Must start with https://cenoteka.rs/")
+        raise InvalidUrl("Invalid Cenoteka URL")
 
     threshold = data.get(CONF_PRICE_THRESHOLD, 0.0)
     if threshold < 0:
@@ -63,25 +63,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     if not token:
         raise CannotConnect("Scrape.do token is required")
 
-    # Optionally test the connection - skip for now to avoid blocking
-    # The actual connection will be tested when the coordinator tries to fetch data
-
     return {"title": data.get(CONF_NAME, DEFAULT_NAME)}
-
-
-def _test_connection(url: str, token: str) -> None:
-    """Test the connection to Scrape.do."""
-    try:
-        import requests
-    except ImportError:
-        raise CannotConnect("requests library not available")
-
-    scrape_url = f"http://api.scrape.do/?url={url}&token={token}&output=raw"
-    try:
-        resp = requests.get(scrape_url, timeout=10)
-        resp.raise_for_status()
-    except requests.exceptions.RequestException as err:
-        raise CannotConnect(f"Connection failed: {err}") from err
 
 
 class CenotekaConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -89,40 +71,25 @@ class CenotekaConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             try:
                 info = await validate_input(self.hass, user_input)
-            except CannotConnect as err:
-                _LOGGER.error("Connection error: %s", err)
+            except CannotConnect:
                 errors["base"] = "cannot_connect"
-            except InvalidUrl as err:
-                _LOGGER.error("Invalid URL: %s", err)
+            except InvalidUrl:
                 errors[CONF_CENOTEKA_URL] = "invalid_url"
-            except InvalidThreshold as err:
-                _LOGGER.error("Invalid threshold: %s", err)
+            except InvalidThreshold:
                 errors[CONF_PRICE_THRESHOLD] = "invalid_threshold"
             except Exception as err:
-                _LOGGER.exception("Unexpected exception in config flow: %s", err)
+                _LOGGER.exception("Unexpected exception: %s", err)
                 errors["base"] = "unknown"
             else:
-                try:
-                    return self.async_create_entry(title=info["title"], data=user_input)
-                except Exception as err:
-                    _LOGGER.exception("Error creating config entry: %s", err)
-                    errors["base"] = "unknown"
+                return self.async_create_entry(title=info["title"], data=user_input)
 
-        try:
-            return self.async_show_form(
-                step_id="user", data_schema=DATA_SCHEMA, errors=errors
-            )
-        except Exception as err:
-            _LOGGER.exception("Error showing form: %s", err)
-            # Return a basic error
-            return self.async_abort(reason="config_flow_error")
-
+        return self.async_show_form(
+            step_id="user", data_schema=DATA_SCHEMA, errors=errors
+        )
