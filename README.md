@@ -110,7 +110,7 @@ These are automatically installed when the integration is installed.
 
 ## Support
 
-For issues, feature requests, or contributions, please open an issue on GitHub.
+For issues, feature requests, or contributions, please open an issue on [GitHub](https://github.com/ivantomicic/ha-scrapedo-cenoteka).
 
 ## License
 
