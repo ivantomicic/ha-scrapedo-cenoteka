@@ -6,7 +6,12 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow
+try:
+    from homeassistant.config_entries import ConfigFlowResult
+except ImportError:
+    # For older Home Assistant versions (< 2022.8)
+    ConfigFlowResult = dict[str, Any]
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -22,6 +27,18 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class CannotConnect(HomeAssistantError):
+    """Error to indicate we cannot connect."""
+
+
+class InvalidUrl(HomeAssistantError):
+    """Error to indicate invalid URL."""
+
+
+class InvalidThreshold(HomeAssistantError):
+    """Error to indicate invalid threshold."""
 
 DATA_SCHEMA = vol.Schema(
     {
@@ -39,22 +56,22 @@ DATA_SCHEMA = vol.Schema(
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
     # Basic validation
-    if not data[CONF_CENOTEKA_URL].startswith("https://cenoteka.rs/"):
+    url = data.get(CONF_CENOTEKA_URL, "")
+    if not url or not url.startswith("https://cenoteka.rs/"):
         raise InvalidUrl("Invalid Cenoteka URL. Must start with https://cenoteka.rs/")
 
-    if data[CONF_PRICE_THRESHOLD] < 0:
+    threshold = data.get(CONF_PRICE_THRESHOLD, 0.0)
+    if threshold < 0:
         raise InvalidThreshold("Price threshold must be non-negative")
 
-    # Test the connection by making a test request
-    # We'll do this in the executor since it's I/O
-    try:
-        await hass.async_add_executor_job(
-            _test_connection, data[CONF_CENOTEKA_URL], data[CONF_SCRAPE_DO_TOKEN]
-        )
-    except Exception as err:
-        raise CannotConnect(f"Cannot connect: {err}") from err
+    token = data.get(CONF_SCRAPE_DO_TOKEN, "")
+    if not token:
+        raise CannotConnect("Scrape.do token is required")
 
-    return {"title": data[CONF_NAME]}
+    # Optionally test the connection - skip for now to avoid blocking
+    # The actual connection will be tested when the coordinator tries to fetch data
+
+    return {"title": data.get(CONF_NAME, DEFAULT_NAME)}
 
 
 def _test_connection(url: str, token: str) -> None:
@@ -101,16 +118,4 @@ class CenotekaConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
         )
-
-
-class CannotConnect(HomeAssistantError):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidUrl(HomeAssistantError):
-    """Error to indicate invalid URL."""
-
-
-class InvalidThreshold(HomeAssistantError):
-    """Error to indicate invalid threshold."""
 
